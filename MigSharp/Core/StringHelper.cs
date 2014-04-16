@@ -5,6 +5,11 @@ namespace MigSharp.Core
 {
     internal static class StringHelper
     {
+        public static IEnumerable<T> Yield<T>(this T that)
+        {
+            yield return that;
+        }
+
         /// <summary>
         /// Returns the longer string.
         /// </summary>

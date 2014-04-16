@@ -9,6 +9,7 @@
         public const string MySqlExperimental = "MySql"; // FIXME: remove Experimental
         public const string Oracle = "Oracle";
         public const string OracleOdbc = "OracleOdbc";
+        public const string Informix = "Informix";
         public const string SQLite = "SQLite";
         public const string SqlServer2005 = "SqlServer2005";
         public const string SqlServer2005Odbc = "SqlServer2005Odbc";
