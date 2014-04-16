@@ -15,25 +15,26 @@ namespace MigSharp.Providers
     //[Supports(DbType.AnsiString, MaximumSize = 65535, CanBeUsedAsPrimaryKey = true)] // maximum size 65,535 started in MySql 5.0.3 according to http://dev.mysql.com/doc/refman/5.0/en/char.html
     //[Supports(DbType.AnsiString)] // translates to LONGTEXT without specifying the size
     [Supports(DbType.Binary)]
-    [Supports(DbType.Byte, CanBeUsedAsPrimaryKey = true, CanBeUsedAsIdentity = true)]
+    //[Supports(DbType.Byte, CanBeUsedAsPrimaryKey = true, CanBeUsedAsIdentity = true)]
     [Supports(DbType.Boolean, CanBeUsedAsPrimaryKey = true)]
+    [Supports(DbType.Currency)]
     [Supports(DbType.DateTime, CanBeUsedAsPrimaryKey = true)]
-    [Supports(DbType.Decimal, MaximumSize = 28, MaximumScale = 28, CanBeUsedAsPrimaryKey = true)] // this is a restriction of the decimal type of the CLR (see http://support.microsoft.com/kb/932288)
-    [Supports(DbType.Decimal, MaximumSize = 28, CanBeUsedAsPrimaryKey = true, CanBeUsedAsIdentity = true)] // this is a restriction of the decimal type of the CLR (see http://support.microsoft.com/kb/932288)
-    [Supports(DbType.Double)]
+    [Supports(DbType.Decimal, MaximumSize = 32, MaximumScale = 32, CanBeUsedAsPrimaryKey = true)] // this is a restriction of the decimal type of the CLR (see http://support.microsoft.com/kb/932288)
+    [Supports(DbType.Decimal, MaximumSize = 32, CanBeUsedAsPrimaryKey = true, CanBeUsedAsIdentity = true)] // this is a restriction of the decimal type of the CLR (see http://support.microsoft.com/kb/932288)
+    //[Supports(DbType.Double)]
     [Supports(DbType.Guid, CanBeUsedAsPrimaryKey = true)]
     [Supports(DbType.Int16, CanBeUsedAsPrimaryKey = true, CanBeUsedAsIdentity = true)]
     [Supports(DbType.Int32, CanBeUsedAsPrimaryKey = true, CanBeUsedAsIdentity = true)]
     [Supports(DbType.Int64, CanBeUsedAsPrimaryKey = true, CanBeUsedAsIdentity = true)]
-    [Supports(DbType.Single, CanBeUsedAsPrimaryKey = true, Warning = "Using DbType.Single might give you some unexpected problems because all calculations in MySQL are done with double precision.")]
-    [Supports(DbType.String, MaximumSize = 65535, CanBeUsedAsPrimaryKey = true)] // maximum size 65,535 started in MySql 5.0.3 according to http://dev.mysql.com/doc/refman/5.0/en/char.html
+    //[Supports(DbType.Single, CanBeUsedAsPrimaryKey = true, Warning = "Using DbType.Single might give you some unexpected problems because all calculations in MySQL are done with double precision.")]
+    [Supports(DbType.String, MaximumSize = 32767, CanBeUsedAsPrimaryKey = true)] // maximum size 65,535 started in MySql 5.0.3 according to http://dev.mysql.com/doc/refman/5.0/en/char.html
     [Supports(DbType.String)] // translates to LONGTEXT without specifying the Size
     [Supports(DbType.Time)]
     [Supports(DbType.UInt16)]
     [Supports(DbType.UInt32)]
     [Supports(DbType.UInt64)]
-    //[Supports(DbType.AnsiStringFixedLength, MaximumSize = 255, CanBeUsedAsPrimaryKey = true)] // http://dev.mysql.com/doc/refman/5.0/en/char.html
-    [Supports(DbType.StringFixedLength, MaximumSize = 255, CanBeUsedAsPrimaryKey = true)] // http://dev.mysql.com/doc/refman/5.0/en/char.html
+    [Supports(DbType.AnsiStringFixedLength, MaximumSize = 32767, CanBeUsedAsPrimaryKey = true)]
+    [Supports(DbType.StringFixedLength, MaximumSize = 32767, CanBeUsedAsPrimaryKey = true)] 
 
     public class InformixProvider : IProvider
     {
@@ -162,13 +163,12 @@ namespace MigSharp.Providers
 
         public IEnumerable<string> AddIndex(string tableName, IEnumerable<string> columnNames, string indexName)
         {
-            yield return string.Format(CultureInfo.InvariantCulture, "CREATE INDEX {0} ON {4}{1} {2}({2}\t{3}{2}){5}",
+            yield return string.Format(CultureInfo.InvariantCulture, "CREATE INDEX {0} ON {1} ({3})",
                 Escape(indexName),
                 Escape(tableName),
                 Environment.NewLine,
-                string.Join(string.Format(CultureInfo.InvariantCulture, ",{0}\t", Environment.NewLine), columnNames.Select(Escape).ToArray()),
-                Dbo,
-                SpecifyWith ? "WITH (SORT_IN_TEMPDB = OFF, IGNORE_DUP_KEY = OFF, DROP_EXISTING = OFF, ONLINE = OFF)" : string.Empty);
+                string.Join(string.Format(CultureInfo.InvariantCulture, ",{0}\t", Environment.NewLine), 
+                columnNames.Select(Escape).ToArray()));
         }
 
         public IEnumerable<string> AddPrimaryKey(string tableName, IEnumerable<string> columnNames, string constraintName)
@@ -188,17 +188,11 @@ namespace MigSharp.Providers
             {
                 yield return text;
             }
-            yield return AlterTable(tableName) + string.Format(CultureInfo.InvariantCulture, " MODIFY COLUMN [{0}] {1} {2} {3}NULL",
+            yield return AlterTable(tableName) + string.Format(CultureInfo.InvariantCulture, " MODIFY COLUMN {0} {1} {2} {3}",
                 column.Name,
                 GetTypeSpecifier(column.DataType),
-                String.Empty,
-                column.IsNullable ? string.Empty : "NOT ");
-            if (column.DefaultValue != null)
-            {
-                yield return AlterTable(tableName) + string.Format(CultureInfo.InvariantCulture, " ADD {0} FOR {1}",
-                    GetDefaultConstraintClause(tableName, column.Name, column.DefaultValue),
-                    Escape(column.Name));
-            }
+                GetDefaultConstraintClause(tableName, column.Name, column.DefaultValue),
+                column.IsNullable ? string.Empty : "NOT NULL");            
         }
 
         public string ConvertToSql(object value, DbType targetDbType)
@@ -236,7 +230,7 @@ namespace MigSharp.Providers
             if (primaryKeyColumns.Count > 0)
             {
                 // FEATURE: support clustering
-                commandText += string.Format(CultureInfo.InvariantCulture, ",{0} primary key (",
+                commandText += string.Format(CultureInfo.InvariantCulture, ",{0} PRIMARY KEY (",
                     Environment.NewLine);                
 
                 columnDelimiterIsNeeded = false;
@@ -250,14 +244,14 @@ namespace MigSharp.Providers
 
                     columnDelimiterIsNeeded = true;
                 }
-                commandText += ")";
+                commandText += string.Format(CultureInfo.InvariantCulture,") CONSTRAINT {0}", Escape(primaryKeyConstraintName));
             }
 
             foreach (var uniqueColumns in columns
                 .Where(c => !string.IsNullOrEmpty(c.UniqueConstraint))
                 .GroupBy(c => c.UniqueConstraint))
             {
-                commandText += string.Format(CultureInfo.InvariantCulture, ", {0} unique",
+                commandText += string.Format(CultureInfo.InvariantCulture, ", {0} UNIQUE",
                     Environment.NewLine);
                 commandText += "(";
 
@@ -296,7 +290,7 @@ namespace MigSharp.Providers
 
         public IEnumerable<string> DropIndex(string tableName, string indexName)
         {
-            yield return string.Format(CultureInfo.InvariantCulture, "DROP INDEX {0} ON [dbo].{1} WITH ( ONLINE = OFF )", Escape(indexName), Escape(tableName));
+            yield return string.Format(CultureInfo.InvariantCulture, "DROP INDEX IF EXISTS {0}", Escape(indexName));
         }
 
         public IEnumerable<string> DropPrimaryKey(string tableName, string constraintName)
@@ -323,7 +317,11 @@ namespace MigSharp.Providers
 
         public IEnumerable<string> RenameColumn(string tableName, string oldName, string newName)
         {
-            throw new NotImplementedException();
+            yield return string.Format(CultureInfo.InvariantCulture,
+              @"RENAME COLUMN {0}.{1} TO {2}",
+                tableName,
+                oldName,
+                newName);
         }
 
         public IEnumerable<string> RenamePrimaryKey(string tableName, string oldName, string newName)
@@ -333,7 +331,10 @@ namespace MigSharp.Providers
 
         public IEnumerable<string> RenameTable(string oldName, string newName)
         {
-            throw new NotImplementedException();
+            yield return string.Format(CultureInfo.InvariantCulture,
+              @"RENAME TABLE {0} TO {1}",                
+                oldName,
+                newName);
         }
 
         protected string GetTypeSpecifier(DataType type)
@@ -355,12 +356,12 @@ namespace MigSharp.Providers
                     return "[smallint]";
                 case DbType.Boolean:
                     return "BOOLEAN";
-                //case DbType.Currency:
-                //    break;
+                case DbType.Currency:
+                    return string.Format(CultureInfo.InvariantCulture, "MONEY({0},{1})", type.Size, type.Scale);
                 case DbType.Date:
                     return "[date]";
                 case DbType.DateTime:
-                    return "datetime year to fraction(5)";
+                    return "DATETIME YEAR TO FRACTION(5)";
                 case DbType.Decimal:
                     return string.Format(CultureInfo.InvariantCulture, "DECIMAL({0},{1})", type.Size, type.Scale);
                 case DbType.Double:
@@ -372,7 +373,7 @@ namespace MigSharp.Providers
                 case DbType.Int32:
                     return "INTEGER";
                 case DbType.Int64:
-                    return "[bigint]";
+                    return "INT8";
                 //case DbType.Object:
                 //    break;
                 case DbType.SByte:
@@ -382,22 +383,21 @@ namespace MigSharp.Providers
                 case DbType.String:
                     if (type.Size > 0)
                     {
-                        if (type.Size < 255)
+                        if (type.Size <= 255)
                             return string.Format(CultureInfo.InvariantCulture, "NVARCHAR({0})", type.Size);
                         if (type.Size < 10000)
                             return string.Format(CultureInfo.InvariantCulture, "LVARCHAR({0})", type.Size);
                     }                    
-                    return "TEXT";
-                case DbType.Time:
-                    return "[time]";
+                    return "TEXT IN TABLE";
+                
                 //case DbType.UInt16:
                 //    break;
                 //case DbType.UInt32:
                 //    break;
                 //case DbType.UInt64:
                 //    break;
-                case DbType.VarNumeric:
-                    return string.Format(CultureInfo.InvariantCulture, "[numeric]({0}, {1})", type.Size, type.Scale);
+                //case DbType.VarNumeric:
+                //    return string.Format(CultureInfo.InvariantCulture, "[numeric]({0}, {1})", type.Size, type.Scale);
                 //case DbType.AnsiStringFixedLength:
                 //    return string.Format(CultureInfo.InvariantCulture, "[char]({0})", type.Size);
                 case DbType.StringFixedLength:
